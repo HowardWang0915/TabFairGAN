@@ -8,6 +8,8 @@ from collections import OrderedDict
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import QuantileTransformer
 from sklearn.model_selection import train_test_split
+from opacus import PrivacyEngine
+from opacus.data_loader import DPDataLoader
 import argparse
 
 
@@ -34,6 +36,7 @@ no_fairness.add_argument("num_epochs", help="Total number of epochs", type=int)
 no_fairness.add_argument("batch_size", help="the batch size", type=int)
 no_fairness.add_argument("fake_name", help="name of the produced csv file", type=str)
 no_fairness.add_argument("size_of_fake_data", help="how many data records to generate", type=int)
+no_fairness.add_argument("--with_dp", action="store_true", help="Enable differential privacy (default: False)")
 
 args = parser.parse_args()
 
@@ -306,6 +309,20 @@ def train(df, epochs=500, batch_size=64, fair_epochs=10, lamda=0.5):
     gen_optimizer = torch.optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
     gen_optimizer_fair = torch.optim.Adam(generator.parameters(), lr=0.0001, betas=(0.5, 0.999))
     crit_optimizer = torch.optim.Adam(critic.parameters(), lr=0.0002, betas=(0.5, 0.999))
+
+    if args.command == "no_fairness":
+        if args.with_dp:
+            privacy_engine = PrivacyEngine(secure_mode=False) 
+
+            # print(privacy_engine.is_compatible(module=critic, optimizer=crit_optimizer, data_loader=train_dl))
+            critic, crit_optimizer, train_dl = privacy_engine.make_private(
+                module=critic,
+                optimizer=crit_optimizer,
+                data_loader=train_dl,
+                noise_multiplier=1.0,
+                max_grad_norm=1.0,
+                poisson_sampling=False
+            )
 
     # loss = nn.BCELoss()
     critic_losses = []
