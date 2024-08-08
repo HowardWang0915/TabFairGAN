@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser()
 subparser = parser.add_subparsers(dest='command')
 with_fairness = subparser.add_parser('with_fairness')
 no_fairness = subparser.add_parser('no_fairness')
+with_cond_ind = subparser.add_parser('with_cond_ind')
 
 with_fairness.add_argument("df_name", help="Reference dataframe", type=str)
 with_fairness.add_argument("S", help="Protected attribute", type=str)
@@ -35,6 +36,20 @@ no_fairness.add_argument("batch_size", help="the batch size", type=int)
 no_fairness.add_argument("fake_name", help="name of the produced csv file", type=str)
 no_fairness.add_argument("size_of_fake_data", help="how many data records to generate", type=int)
 
+with_cond_ind.add_argument("df_name", help="Reference dataframe", type=str)
+with_cond_ind.add_argument("S", help="Protected attribute", type=str)
+with_cond_ind.add_argument("Y", help="Label (decision)", type=str)
+with_cond_ind.add_argument("X", help="Admissible attribute", type=str)
+with_cond_ind.add_argument("underprivileged_value", help="Value for underpriviledged group", type=str)
+with_cond_ind.add_argument("desirable_value", help="Desired label (decision)", type=str)
+with_cond_ind.add_argument("admissible_value", help="Admissible label", type=str)
+with_cond_ind.add_argument("num_epochs", help="Total number of epochs", type=int)
+with_cond_ind.add_argument("batch_size", help="the batch size", type=int)
+with_cond_ind.add_argument("num_fair_epochs", help="number of fair training epochs", type=int)
+with_cond_ind.add_argument("lambda_val", help="lambda parameter", type=float)
+with_cond_ind.add_argument("fake_name", help="name of the produced csv file", type=str)
+with_cond_ind.add_argument("size_of_fake_data", help="how many data records to generate", type=int)
+
 args = parser.parse_args()
 
 if args.command == 'with_fairness':
@@ -50,7 +65,20 @@ if args.command == 'with_fairness':
 
 elif args.command == 'no_fairness':
     df = pd.read_csv(args.df_name)
+    
+elif args.command == 'with_cond_ind':
+    S = args.S
+    Y = args.Y
+    X = args.X
+    S_under = args.underprivileged_value
+    Y_desire = args.desirable_value
+    X_desire = args.admissible_value
 
+    df = pd.read_csv(args.df_name)
+
+    df[S] = df[S].astype(object)
+    df[Y] = df[Y].astype(object)
+    df[X] = df[X].astype(object)
 
 if args.command == "with_fairness":
     def get_ohe_data(df):
@@ -89,6 +117,52 @@ if args.command == "with_fairness":
 
         final_array = np.hstack((numerical_array, ohe_array.toarray()))
         return ohe, scaler, discrete_columns_ordereddict, continuous_columns_list, final_array, S_start_index, Y_start_index, underpriv_index, priv_index, undesire_index, desire_index
+elif args.command == "with_cond_ind":
+    def get_ohe_data(df):
+        df_int = df.select_dtypes(['float', 'integer']).values
+        continuous_columns_list = list(df.select_dtypes(['float', 'integer']).columns)
+        ##############################################################
+        scaler = QuantileTransformer(n_quantiles=2000, output_distribution='uniform')
+        df_int = scaler.fit_transform(df_int)
+
+        df_cat = df.select_dtypes('object')
+        df_cat_names = list(df.select_dtypes('object').columns)
+        numerical_array = df_int
+        ohe = OneHotEncoder()
+        ohe_array = ohe.fit_transform(df_cat)
+
+        cat_lens = [i.shape[0] for i in ohe.categories_]
+        discrete_columns_ordereddict = OrderedDict(zip(df_cat_names, cat_lens))
+
+        S_start_index = len(continuous_columns_list) + sum(
+            list(discrete_columns_ordereddict.values())[:list(discrete_columns_ordereddict.keys()).index(S)])
+        Y_start_index = len(continuous_columns_list) + sum(
+            list(discrete_columns_ordereddict.values())[:list(discrete_columns_ordereddict.keys()).index(Y)])
+        X_start_index = len(continuous_columns_list) + sum(
+            list(discrete_columns_ordereddict.values())[:list(discrete_columns_ordereddict.keys()).index(X)])
+
+        if ohe.categories_[list(discrete_columns_ordereddict.keys()).index(S)][0] == S_under:
+            underpriv_index = 0
+            priv_index = 1
+        else:
+            underpriv_index = 1
+            priv_index = 0
+        if ohe.categories_[list(discrete_columns_ordereddict.keys()).index(Y)][0] == Y_desire:
+            desire_index = 0
+            undesire_index = 1
+        else:
+            desire_index = 1
+            undesire_index = 0
+        if ohe.categories_[list(discrete_columns_ordereddict.keys()).index(Y)][0] == X_desire:
+            X_desire_index = 0
+            X_undesire_index = 1
+        else:
+            X_desire_index = 1
+            X_undesire_index = 0
+
+        final_array = np.hstack((numerical_array, ohe_array.toarray()))
+        return ohe, scaler, discrete_columns_ordereddict, continuous_columns_list, final_array, S_start_index, Y_start_index, X_start_index, underpriv_index, priv_index, undesire_index, desire_index, X_undesire_index, X_desire_index
+    
 
 elif args.command == "no_fairness":
     def get_ohe_data(df):
@@ -138,6 +212,26 @@ if args.command == "with_fairness":
         train_ds = TensorDataset(data)
         train_dl = DataLoader(train_ds, batch_size = batch_size, drop_last=True)
         return ohe, scaler, input_dim, discrete_columns, continuous_columns ,train_dl, data_train, data_test, S_start_index, Y_start_index, underpriv_index, priv_index, undesire_index, desire_index
+    
+elif args.command == "with_cond_ind":
+    def prepare_data(df, batch_size):
+        ohe, scaler, discrete_columns, continuous_columns, df_transformed, S_start_index, Y_start_index, X_start_index, underpriv_index, priv_index, undesire_index, desire_index, X_undesire_index, X_desire_index = get_ohe_data(df)
+        
+        input_dim = df_transformed.shape[1]
+        X_train, X_test = train_test_split(df_transformed,test_size=0.1, shuffle=True)
+        
+        
+        data_train = X_train.copy()
+        data_test = X_test.copy()
+
+        from torch.utils.data import TensorDataset
+        from torch.utils.data import DataLoader
+        data = torch.from_numpy(data_train).float()
+
+
+        train_ds = TensorDataset(data)
+        train_dl = DataLoader(train_ds, batch_size = batch_size, drop_last=True)
+        return ohe, scaler, input_dim, discrete_columns, continuous_columns ,train_dl, data_train, data_test, S_start_index, Y_start_index, X_start_index, underpriv_index, priv_index, undesire_index, desire_index, X_undesire_index, X_desire_index
 
 elif args.command == "no_fairness":
     def prepare_data(df, batch_size):
@@ -213,6 +307,35 @@ class Critic(nn.Module):
         # x = self.drop(x)
         return x
 
+class CondIndLossFunc(nn.Module):
+    def __init__(self, S_start_index, Y_start_index, X_start_index, underpriv_index, priv_index, undesire_index, desire_index, X_undesire_index, X_desire_index):
+        super(CondIndLossFunc, self).__init__()
+        self._S_start_index = S_start_index
+        self._Y_start_index = Y_start_index
+        self._X_start_index = X_start_index
+        self._underpriv_index = underpriv_index
+        self._priv_index = priv_index
+        self._undesire_index = undesire_index
+        self._desire_index = desire_index
+        self._X_undesire_index = X_undesire_index
+        self._X_desire_index = X_desire_index
+    def forward(self, x, crit_fake_pred, lam):
+        G = x[:, self._S_start_index:self._S_start_index + 2]
+        # print(x[0,64])
+        I = x[:, self._Y_start_index:self._Y_start_index + 2]
+        X = x[:, self._X_start_index:self._X_start_index + 2]
+        # disp = -1.0 * lambda * (torch.mean(G[:, self._underpriv_index] * I[:, self._desire_index]) / (
+        #     x[:, self._S_start_index + self._underpriv_index].sum()) - torch.mean(
+        #     G[:, self._priv_index] * I[:, self._desire_index]) / (
+        #                            x[:, self._S_start_index + self._priv_index].sum())) - 1.0 * torch.mean(
+        #     crit_fake_pred)
+        mean_Y_given_S_X = torch.mean(G[:, self._underpriv_index] * I[:, self._desire_index] * X[:, self._X_desire_index]) / (G[:, self._underpriv_index] * X[:, self._X_desire_index]).sum()
+        mean_Y_given_X = torch.mean(I[:, self._desire_index] * X[:, self._X_desire_index]) / X[:, self._X_desire_index].sum()
+        conditional_indep_loss = lam * torch.abs(mean_Y_given_S_X - mean_Y_given_X)
+        disp = conditional_indep_loss - torch.mean(crit_fake_pred)
+        # disp = -1.0 * lambda * (torch.mean(G[:, self._underpriv_index] * I[:, self._desrire_index] * X[:, self._X_desire_index]) / X[:, self._X_desire_index].sum()) - torch.mean(I[:, self._desire_index] * X[:, self._X_desire_index]) / X[:, self._X_desire_index].sum()) - 1.0 * torch.mean(crit_fake_pred)
+        # print(disp)
+        return disp
 
 class FairLossFunc(nn.Module):
     def __init__(self, S_start_index, Y_start_index, underpriv_index, priv_index, undesire_index, desire_index):
@@ -284,11 +407,16 @@ def train(df, epochs=500, batch_size=64, fair_epochs=10, lamda=0.5):
         ohe, scaler, input_dim, discrete_columns, continuous_columns, train_dl, data_train, data_test, S_start_index, Y_start_index, underpriv_index, priv_index, undesire_index, desire_index = prepare_data(df, batch_size)
     elif args.command == "no_fairness":
         ohe, scaler, input_dim, discrete_columns, continuous_columns, train_dl, data_train, data_test = prepare_data(df, batch_size)
+    else: # conditional independence constraint
+        ohe, scaler, input_dim, discrete_columns, continuous_columns, train_dl, data_train, data_test, S_start_index, Y_start_index, X_start_index, underpriv_index, priv_index, undesire_index, desire_index, X_undesire_index, X_desire_index = prepare_data(df, batch_size)
+        
 
     generator = Generator(input_dim, continuous_columns, discrete_columns).to(device)
     critic = Critic(input_dim).to(device)
     if args.command == "with_fairness":
         second_critic = FairLossFunc(S_start_index, Y_start_index, underpriv_index, priv_index, undesire_index, desire_index).to(device)
+    if args.command == "with_cond_ind":
+        second_critic = CondIndLossFunc(S_start_index, Y_start_index, X_start_index, underpriv_index, priv_index, undesire_index, desire_index, X_undesire_index, X_desire_index).to(device)
 
     gen_optimizer = torch.optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
     gen_optimizer_fair = torch.optim.Adam(generator.parameters(), lr=0.0001, betas=(0.5, 0.999))
@@ -370,6 +498,8 @@ def train_plot(df, epochs, batchsize, fair_epochs, lamda):
 if args.command == "with_fairness":
     generator, critic, ohe, scaler, data_train, data_test, input_dim = train_plot(df, args.num_epochs, args.batch_size, args.num_fair_epochs, args.lambda_val)
 elif args.command == "no_fairness":
+    generator, critic, ohe, scaler, data_train, data_test, input_dim = train_plot(df, args.num_epochs, args.batch_size, 0, 0)
+else:
     generator, critic, ohe, scaler, data_train, data_test, input_dim = train_plot(df, args.num_epochs, args.batch_size, 0, 0)
 fake_numpy_array = generator(torch.randn(size=(args.size_of_fake_data, input_dim), device=device)).cpu().detach().numpy()
 fake_df = get_original_data(fake_numpy_array, df, ohe, scaler)
