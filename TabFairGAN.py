@@ -239,20 +239,7 @@ class FairLossFunc(nn.Module):
         # print(disp)
         return disp
 
-
-
-
-
-
-
-
-
-
-
-
-
 device = torch.device("cuda:0" if (torch.cuda.is_available() and 1 > 0) else "cpu")
-
 
 def get_gradient(crit, real, fake, epsilon):
     mixed_data = real * epsilon + fake * (1 - epsilon)
