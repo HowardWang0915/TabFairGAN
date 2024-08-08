@@ -9,11 +9,9 @@ no_fairness_adult:
 
 # Target for running TabFairGAN.py with fairness
 with_fairness_adult:
-	python TabFairGAN.py with_fairness experiments/adult/adult.csv "sex" "income" " Female" " >50K" 200 256 30 0.5 experiments/adult/fake_adult_with_fairness.csv 32561
-
-dp_no_fairness_adult:
-	python TabFairGAN.py no_fairness experiments/adult/adult.csv 300 256 experiments/adult/fake_adult_with_dp.csv 32561 --with_dp
-
+	python TabFairGAN.py with_fairness experiments/adult/adult.csv "sex" "income" " female" " >50k" 200 256 30 0.5 experiments/adult/fake_adult_with_fairness.csv 32561
+with_cond_ind_adult:
+	python TabFairGAN.py with_cond_ind experiments/adult/adult_processed.csv "sex" "income" "race" "female" " >50k" "White" 200 256 30 0.5 experiments/adult/fake_adult_with_cond_ind.csv 32561
 no_fairness_bank:
 	python TabFairGAN.py no_fairness experiments/bank/bank_full_modified.csv 300 256 experiments/bank/fake_bank.csv 45212
 
