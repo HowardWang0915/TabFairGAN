@@ -153,7 +153,7 @@ elif args.command == "with_cond_ind":
         else:
             desire_index = 1
             undesire_index = 0
-        if ohe.categories_[list(discrete_columns_ordereddict.keys()).index(Y)][0] == X_desire:
+        if ohe.categories_[list(discrete_columns_ordereddict.keys()).index(X)][0] == X_desire:
             X_desire_index = 0
             X_undesire_index = 1
         else:
@@ -332,7 +332,7 @@ class CondIndLossFunc(nn.Module):
         mean_Y_given_S_X = torch.mean(G[:, self._underpriv_index] * I[:, self._desire_index] * X[:, self._X_desire_index]) / (G[:, self._underpriv_index] * X[:, self._X_desire_index]).sum()
         mean_Y_given_X = torch.mean(I[:, self._desire_index] * X[:, self._X_desire_index]) / X[:, self._X_desire_index].sum()
         conditional_indep_loss = lam * torch.abs(mean_Y_given_S_X - mean_Y_given_X)
-        disp = conditional_indep_loss - torch.mean(crit_fake_pred)
+        disp = -conditional_indep_loss - torch.mean(crit_fake_pred)
         # disp = -1.0 * lambda * (torch.mean(G[:, self._underpriv_index] * I[:, self._desrire_index] * X[:, self._X_desire_index]) / X[:, self._X_desire_index].sum()) - torch.mean(I[:, self._desire_index] * X[:, self._X_desire_index]) / X[:, self._X_desire_index].sum()) - 1.0 * torch.mean(crit_fake_pred)
         # print(disp)
         return disp
