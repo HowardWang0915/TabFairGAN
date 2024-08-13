@@ -17,6 +17,11 @@ no_fairness_bank:
 
 with_fairness_bank:
 	python TabFairGAN.py with_fairness experiments/bank/bank_full_modified.csv "age_binary" "y" "older" "yes" 200 256 5 2 experiments/bank/fake_bank_with_fairness.csv 45212
+no_fairness_compas:
+	python TabFairGAN.py no_fairness experiments/compas/Compas_Raw_Scores_Modified.csv 200 256 experiments/compas/fake_compas.csv 16268
+	
+with_fairness_compas:
+	python TabFairGAN.py with_fairness experiments/compas/Compas_Raw_Scores_Modified.csv "Ethnic_Code_Text" "binary_text" "African-American" "Low_Chance" 200 256 45 1.5 experiments/compas/fake_compas_with_fairness.csv 16268
 	
 # Clean target (optional)
 clean:
