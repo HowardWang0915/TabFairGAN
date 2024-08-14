@@ -324,17 +324,11 @@ class CondIndLossFunc(nn.Module):
         # print(x[0,64])
         I = x[:, self._Y_start_index:self._Y_start_index + 2]
         X = x[:, self._X_start_index:self._X_start_index + 2]
-        # disp = -1.0 * lambda * (torch.mean(G[:, self._underpriv_index] * I[:, self._desire_index]) / (
-        #     x[:, self._S_start_index + self._underpriv_index].sum()) - torch.mean(
-        #     G[:, self._priv_index] * I[:, self._desire_index]) / (
-        #                            x[:, self._S_start_index + self._priv_index].sum())) - 1.0 * torch.mean(
-        #     crit_fake_pred)
-        mean_Y_given_S_X = torch.mean(G[:, self._underpriv_index] * I[:, self._desire_index] * X[:, self._X_desire_index]) / (G[:, self._underpriv_index] * X[:, self._X_desire_index]).sum()
-        mean_Y_given_X = torch.mean(I[:, self._desire_index] * X[:, self._X_desire_index]) / X[:, self._X_desire_index].sum()
+        mean_Y_given_S_X = (G[:, self._underpriv_index] * I[:, self._desire_index] * X[:, self._X_desire_index]).sum() / (G[:, self._underpriv_index] * X[:, self._X_desire_index]).sum()
+        mean_Y_given_X = (I[:, self._desire_index] * X[:, self._X_desire_index]).sum() / (X[:, self._X_desire_index]).sum()
         conditional_indep_loss = lam * torch.abs(mean_Y_given_S_X - mean_Y_given_X)
-        disp = -conditional_indep_loss - torch.mean(crit_fake_pred)
-        # disp = -1.0 * lambda * (torch.mean(G[:, self._underpriv_index] * I[:, self._desrire_index] * X[:, self._X_desire_index]) / X[:, self._X_desire_index].sum()) - torch.mean(I[:, self._desire_index] * X[:, self._X_desire_index]) / X[:, self._X_desire_index].sum()) - 1.0 * torch.mean(crit_fake_pred)
-        # print(disp)
+        disp = conditional_indep_loss - torch.mean(crit_fake_pred)
+
         return disp
 
 class FairLossFunc(nn.Module):
@@ -349,17 +343,10 @@ class FairLossFunc(nn.Module):
 
     def forward(self, x, crit_fake_pred, lamda):
         G = x[:, self._S_start_index:self._S_start_index + 2]
-        # print(x[0,64])
         I = x[:, self._Y_start_index:self._Y_start_index + 2]
-        # disp = (torch.mean(G[:,1]*I[:,1])/(x[:,65].sum())) - (torch.mean(G[:,0]*I[:,0])/(x[:,64].sum()))
-        # disp = -1.0 * torch.tanh(torch.mean(G[:,0]*I[:,1])/(x[:,64].sum()) - torch.mean(G[:,1]*I[:,1])/(x[:,65].sum()))
-        # gen_loss = -1.0 * torch.mean(crit_fake_pred)
-        disp = -1.0 * lamda * (torch.mean(G[:, self._underpriv_index] * I[:, self._desire_index]) / (
-            x[:, self._S_start_index + self._underpriv_index].sum()) - torch.mean(
-            G[:, self._priv_index] * I[:, self._desire_index]) / (
-                                   x[:, self._S_start_index + self._priv_index].sum())) - 1.0 * torch.mean(
-            crit_fake_pred)
-        # print(disp)
+        P_Y_S_0 = (G[:, self._underpriv_index] * I[:, self._desire_index]).sum() / x[:, self._S_start_index + self._underpriv_index].sum()
+        P_Y_S_1 = (G[:, self._priv_index] * I[:, self._desire_index]).sum() / x[:, self._S_start_index + self._priv_index].sum()
+        disp = lamda * torch.abs(P_Y_S_0 - P_Y_S_1) - torch.mean(crit_fake_pred)
         return disp
 
 device = torch.device("cuda:0" if (torch.cuda.is_available() and 1 > 0) else "cpu")
