@@ -9,19 +9,19 @@ no_fairness_adult:
 
 # Target for running TabFairGAN.py with fairness
 with_fairness_adult:
-	python TabFairGAN.py with_fairness experiments/adult/adult.csv "sex" "income" " Female" " >50K" 200 256 30 0.5 experiments/adult/fake_adult_with_fairness.csv 32561
+	python TabFairGAN.py with_fairness experiments/adult/adult.csv "sex" "income" " Female" " >50K" 100 256 30 0.05 experiments/adult/fake_adult_with_fairness.csv 32561
 with_cond_ind_adult:
-	python TabFairGAN.py with_cond_ind experiments/adult/adult_race_processed.csv "sex" "income" "race" " Female" " >50K" " White" 200 256 30 1.3 experiments/adult/fake_adult_with_cond_ind.csv 32561
+	python TabFairGAN.py with_cond_ind experiments/adult/adult_race_processed.csv "sex" "income" "race" " Female" " >50K" " White" 200 256 30 0.05 experiments/adult/fake_adult_with_cond_ind.csv 32561
 no_fairness_bank:
 	python TabFairGAN.py no_fairness experiments/bank/bank_full_modified.csv 300 256 experiments/bank/fake_bank.csv 45212
 
 with_fairness_bank:
-	python TabFairGAN.py with_fairness experiments/bank/bank_full_modified.csv "age_binary" "y" "older" "yes" 200 256 5 2 experiments/bank/fake_bank_with_fairness.csv 45212
+	python TabFairGAN.py with_fairness experiments/bank/bank_full_modified.csv "age_binary" "y" "older" "yes" 200 256 20 0.05 experiments/bank/fake_bank_with_fairness.csv 45212
 no_fairness_compas:
 	python TabFairGAN.py no_fairness experiments/compas/Compas_Raw_Scores_Modified.csv 200 256 experiments/compas/fake_compas.csv 16268
 	
 with_fairness_compas:
-	python TabFairGAN.py with_fairness experiments/compas/Compas_Raw_Scores_Modified.csv "Ethnic_Code_Text" "binary_text" "African-American" "Low_Chance" 200 256 45 1.5 experiments/compas/fake_compas_with_fairness.csv 16268
+	python TabFairGAN.py with_fairness experiments/compas/Compas_Raw_Scores_Modified.csv "Ethnic_Code_Text" "binary_text" "African-American" "Low_Chance" 200 256 45 0.05 experiments/compas/fake_compas_with_fairness.csv 16268
 	
 # Clean target (optional)
 clean:
