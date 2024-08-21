@@ -41,8 +41,6 @@ class CondIndLossFunc(torch.nn.Module):
 
         # Optional: Include additional terms in the loss
         disp = total_loss - torch.mean(crit_fake_pred)
-        print(total_loss)
-        print(disp)
 
         return disp
 
